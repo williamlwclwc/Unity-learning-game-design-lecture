@@ -9,15 +9,24 @@ public class Player : MonoBehaviour {
     CharacterController m_ch;
     float m_movespeed = 10.0f;
     float m_gravity = 2.0f;
-    public int m_life = 5;
+    public int m_life = 100;
 
     //摄像机变量
     private Transform cam_transform;
     Vector3 m_camRot;
     float m_camHeight = 1.4f;
 
+    //交互变量
+    Transform m_muzzlepoint;
+    public LayerMask m_layer;
+    public Transform m_fx;
+    private AudioSource m_audio;
+    float m_shootTimer = 0;
+    public int weapon_power = 1;
+
 	// Use this for initialization
 	void Start () {
+        m_audio = GetComponent<AudioSource>();
         m_transform = this.transform;
         m_ch = this.GetComponent<CharacterController>();
 
@@ -28,6 +37,8 @@ public class Player : MonoBehaviour {
         cam_transform.rotation = m_transform.rotation;
         m_camRot = cam_transform.eulerAngles;
 
+        m_muzzlepoint = cam_transform.FindChild("M16/weapon/muzzlepoint").transform;
+
         //锁定鼠标
         Screen.lockCursor = true;
 	}
@@ -37,6 +48,25 @@ public class Player : MonoBehaviour {
         if (m_life <= 0)
             return;
         Control();
+
+        m_shootTimer -= Time.deltaTime;
+        if(Input.GetMouseButton(0)&&m_shootTimer<=0)
+        {
+            m_shootTimer = 0.1f;
+            m_audio.Play();
+            GameManager.Instance.SetAmmo(1);
+            RaycastHit info;
+            bool hit = Physics.Raycast(m_muzzlepoint.position, cam_transform.TransformDirection(Vector3.forward), out info, 100, m_layer);
+            if(hit)
+            {
+                if(info.transform.tag.CompareTo("enemy")==0)
+                {
+                    Enemy enemy = info.transform.GetComponent<Enemy>();
+                    enemy.OnDamage(weapon_power);
+                }
+                Instantiate(m_fx, info.point, info.transform.rotation);
+            }
+        }
 	}
 
     void Control()
@@ -83,5 +113,15 @@ public class Player : MonoBehaviour {
     private void OnDrawGizmos()
     {
         Gizmos.DrawIcon(this.transform.position, "Spawn.tif");
+    }
+
+    public void OnDamage(int damage)
+    {
+        m_life -= damage;
+        GameManager.Instance.SetLife(m_life);
+        if(m_life<=0)
+        {
+            Screen.lockCursor = false;
+        }
     }
 }
